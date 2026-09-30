@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ぬいぐるみ なでなでアプリ</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #fff5f7;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none; /* テキスト選択を無効化 */
+    }
+
+    h1 {
+      color: #ff6b81;
+      font-size: 1.5rem;
+      margin-bottom: 10px;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    /* 画像表示エリア */
+    .stage {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      border: 4px dashed #ffb6c1;
+      border-radius: 20px;
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none; /* スマホでのスクロールを防止 */
+    }
+
+    .stage:active {
+      cursor: grabbing;
+    }
+
+    /* ぬいぐるみ画像 */
+    #plush-img {
+      max-width: 80%;
+      max-height: 80%;
+      object-fit: contain;
+      pointer-events: none; /* ドラッグ操作の邪魔にならないように */
+      transition: transform 0.1s ease-out;
+      transform-origin: center bottom; /* 下側を軸に揺らす */
+    }
+
+    /* ドラッグ時のぷにぷにアニメーション用クラス */
+    .squish {
+      transform: scale(1.1, 0.9) rotate(3deg);
+    }
+
+    .squish-alt {
+      transform: scale(0.9, 1.1) rotate(-3deg);
+    }
+
+    /* なでなで時に現れるハートエフェクト */
+    .heart {
+      position: absolute;
+      color: #ff4757;
+      font-size: 24px;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-50px) scale(1.5);
+      }
+    }
+
+    .placeholder-text {
+      color: #aaa;
+      font-size: 0.9rem;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ぬいぐるみ なでなでアプリ</h1>
+
+  <div class="controls">
+    <input type="file" id="upload" accept="image/*">
+  </div>
+
+  <div class="stage" id="stage">
+    <span class="placeholder-text" id="placeholder">写真をアップロードしてね</span>
+    <img id="plush-img" src="" alt="ぬいぐるみ" style="display: none;">
+  </div>
+
+  <script>
+    const uploadInput = document.getElementById('upload');
+    const plushImg = document.getElementById('plush-img');
+    const placeholder = document.getElementById('placeholder');
+    const stage = document.getElementById('stage');
+
+    let isInteracting = false;
+    let lastX = 0;
+    let toggleSquish = false;
+
+    // 1. 画像アップロード処理
+    uploadInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          plushImg.src = event.target.result;
+          plushImg.style.display = 'block';
+          placeholder.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // 2. なでなで（ドラッグ・タッチ）モーション処理
+    function startPetting(clientX, clientY) {
+      isInteracting = true;
+      lastX = clientX;
+    }
+
+    function movePetting(clientX, clientY) {
+      if (!isInteracting) return;
+
+      const deltaX = Math.abs(clientX - lastX);
+
+      // 一定以上手やマウスが動いたら「なでなで」と判定
+      if (deltaX > 5) {
+        // 交互に形を変えて「ぷにぷに・ゆらゆら」させる
+        toggleSquish = !toggleSquish;
+        if (toggleSquish) {
+          plushImg.className = 'squish';
+        } else {
+          plushImg.className = 'squish-alt';
+        }
+
+        // ハートを表示する
+        createHeart(clientX, clientY);
+        lastX = clientX;
+      }
+    }
+
+    function stopPetting() {
+      isInteracting = false;
+      plushImg.className = ''; // 元の形に戻す
+    }
+
+    // ハート生成エフェクト
+    function createHeart(x, y) {
+      const rect = stage.getBoundingClientRect();
+      const heart = document.createElement('div');
+      heart.className = 'heart';
+      heart.innerText = '♥';
+      
+      // ステージ内の相対座標に配置
+      heart.style.left = `${x - rect.left - 12}px`;
+      heart.style.top = `${y - rect.top - 12}px`;
+
+      stage.appendChild(heart);
+
+      // アニメーション終了後に削除
+      setTimeout(() => {
+        heart.remove();
+      }, 800);
+    }
+
+    // マウスイベント
+    stage.addEventListener('mousedown', (e) => startPetting(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => movePetting(e.clientX, e.clientY));
+    window.addEventListener('mouseup', stopPetting);
+
+    // スマホタッチイベント対応
+    stage.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      startPetting(touch.clientX, touch.clientY);
+    });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        movePetting(touch.clientX, touch.clientY);
+      }
+    });
+    window.addEventListener('touchend', stopPetting);
+  </script>
+</body>
+</html>
